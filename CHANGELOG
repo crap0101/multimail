@@ -1,0 +1,11 @@
+changelog: multimail 2.2.0 (2009-11-22)
+  * module editor.py improved (but we've lost some features)
+
+changelog: multimail 2.2.0 (2011-06-14)
+  * rewrite of module editor.py
+  * general refactoring
+  * added some option and deleted others
+  * enable use of config file
+  * some tweak on temporary archive creation for attachments
+  * tests improved
+  * other stuffs
