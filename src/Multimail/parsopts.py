@@ -19,14 +19,14 @@
 # along with this program; if not see <http://www.gnu.org/licenses/>
 
 
-VERSION = 'multimail 2.2.0'
+VERSION = 'multimail 2.2.1'
 
 DESCRIPTION = """
                  multimail - massive email sender
 NAME: multimail
-VERSION: 2.2.0
+VERSION: 2.2.1
 AUTHORS: Marco Chieppa (aka crap0101)
-DATE:    2011-06-09
+DATE:    2011-06-17
 LICENSE: GNU GPL v3 or later
 REQUIRES:
   - Python < 3
@@ -96,15 +96,11 @@ def get_parsed():
                         ' This option will be used only if the -c|--compress'
                         ' option is present, raise an error otherwise). Without'
                         ' this option a randomly generated name is choosen.'
-                        ' If the number of parameter are less then the number'
-                        ' of archives a randomly generated name is choosen'
-                        ' for archives in excess. In practice, this option'
-                        ' must be present the same number of time the'
-                        ' -a|--attachments options with the same numer of'
-                        ' parameter, in other words -A maps -a, for example'
+                        " In practice, this option's values must be in the same"
+                        ' number of the -a|--attachments ones, for example'
                         ' a valid use is:'
-                        '    -a FILES_FOR_ARCH1 -a FILES_FOR_ARCH2'
-                        '    -A NAME_OF_ARCH1 -A NAME_OF_ARCH2 .')
+                        '  [...] -a FILES_FOR_ARCH1 -a FILES_FOR_ARCH2'
+                        ' -A NAME_OF_ARCH1 NAME_OF_ARCH2 [...] .')
     parser.add_argument('-c', '--compress', dest='compression', 
                         choices=('tar', 'gz', 'bz2', 'zip'),
                         help='make a (potentially) compressed archive'

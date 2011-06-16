@@ -275,10 +275,11 @@ def main(args):
             parser.error("can't send attachments in plain text mode")
     else:
         if opts.attachments:
-            for arch, name in mmutils.izip_longest(
-                opts.attachments, opts.archive_name):
-                if not arch or len(arch) < len(name):
-                    parser.error("too many archive's names.")
+            opts.archive_name = list(it.chain(*opts.archive_name))
+            if len(opts.attachments) != len(opts.archive_name):
+                parser.error("wrong number of argument for archive"
+                             " naming:\narchives = %d\nnames = %d" %
+                             (len(opts.attachments), len(opts.archive_name)))
             if opts.archive_name and not opts.attachments:
                 parser.error('No archive for naming.')
             elif opts.archive_name and not opts.compression:
@@ -306,7 +307,7 @@ def main(args):
                 _ext = ('.tar' if opts.compression in ('gz', 'bz2')
                         else '') + '.' + opts.compression
                 _a_names = list((_a_name + _ext if _a_name else _a_name)
-                                for _a_name in it.chain(*opts.archive_name))
+                                for _a_name in opts.archive_name)
                 opts.attachments = list(mmutils.izip_longest(
                     _attachment, _a_names))
             elif _dirs:
