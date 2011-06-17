@@ -276,10 +276,6 @@ def main(args):
     else:
         if opts.attachments:
             opts.archive_name = list(it.chain(*opts.archive_name))
-            if len(opts.attachments) != len(opts.archive_name):
-                parser.error("wrong number of argument for archive"
-                             " naming:\narchives = %d\nnames = %d" %
-                             (len(opts.attachments), len(opts.archive_name)))
             if opts.archive_name and not opts.attachments:
                 parser.error('No archive for naming.')
             elif opts.archive_name and not opts.compression:
@@ -296,6 +292,10 @@ def main(args):
                     else:
                         parser.error("can't attach %s [invalid type]" % att)
             if opts.compression:
+                if len(opts.attachments) != len(opts.archive_name):
+                    parser.error("wrong number of argument for archive"
+                                 " naming:\narchives = %d\nnames = %d" %
+                                 (len(opts.attachments), len(opts.archive_name)))
                 _attachment = []
                 for group in opts.attachments: 
                     _attachment.append(mmutils.create_archive(
