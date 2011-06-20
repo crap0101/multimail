@@ -22,12 +22,15 @@
 from __future__ import with_statement
 import os
 import time
+import shlex
+import subprocess as subp
 import os.path as osp
 import zipfile
 import tarfile
 import tempfile
 import platform
 import ConfigParser
+
 
 py_version = ''.join(platform.python_version_tuple()[:2])
 if py_version < '26':
@@ -105,18 +108,50 @@ def create_archive(paths, arch_type, arch_path=None):
         return None
     return arch_path
 
+#gpg_key_id = '79631020'
+#gpg_exe = 'gpg'
+#'--default-key'
+#'--clearsign' # .asc
+#'_output': '--output %s'
+#--detach-sig  #.sig
+
+
+def build_gpg_cmd(exe, key, infile, outfile, detached):
+    s_type = '--clearsign' if not detached else '--detach-sig'
+    cmdline = "%s --default-key %s --output %s %s %s" % (
+        exe, key, outfile, s_type, infile)
+    return shlex.split(cmdline)  #ValueError: (no closing quotation)
+
+def do_sign(cmdline):
+    try:
+        subp.check_call(cmdline)
+        return True
+    except subp.CalledProcessError:
+        return False
+    
+def gpg_sign(gpg_exe, gpg_key_id, text, detach):
+    with tempfile.NamedTemporaryFile() as fin:
+        to_sign = fin.name
+    with tempfile.NamedTemporaryFile() as fout:
+        signed = fout.name
+    with open(to_sign, 'w') as f:
+        f.write(text)
+    if not do_sign(build_gpg_cmd(gpg_exe, gpg_key_id, to_sign, signed, detach)):
+        os.remove(to_sign)
+        raise ValueError('Unable to sign')
+    os.remove(to_sign)
+    return signed
 
 def mail_format_time():
     """
     Return the actual time and date as a string in a
     format compliant with the RFC822 specification.
     """
-    ltime = time.localtime()
     gtime = time.gmtime()
-    timeloc = ltime.tm_hour * 60 + ltime.tm_min
-    timegmt = gtime.tm_hour * 60 + gtime.tm_min
-    h, m = divmod(timeloc - timegmt, 60)
-    diff = "%s%02d%02d" % ('-' if h < 0 else '+', h, m)
+    ltime = time.localtime()
+    _delta = abs(ltime.tm_hour - gtime.tm_hour)
+    delta = 0 if not _delta else 24 % _delta
+    diff = "%s%02d00" % ('-' if ltime < gtime else '+', delta)
     return "%s %s" % (time.strftime(
         "%a, %d %b %Y %H:%M:%S", time.localtime()), diff)
 

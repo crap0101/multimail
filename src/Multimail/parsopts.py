@@ -54,7 +54,7 @@ INTERNAL TEXT EDITOR KEYSTROKES:
   [CRTL + K]  >> delete from the cursor to the EOL
 ------------------------------------------------
 
-VALUE NAMES RECOGNIZED (FOR THE CONFIG FILE):
+VALUE NAMES RECOGNIZED (IN THE CONFIG FILE):
 ---------------------------------
 sender =			;; email address
 login =				;; login name
@@ -68,6 +68,8 @@ ssl_port = 465      ;; used when secure_conn is true (ssl encryption)
 timeout = 50	    ;; timeout in seconds for blocking operations like the connection attempt
 debug_mode = 	    ;; no value for disable 
 delay = 0           ;; delay between mail sending
+gpg_key_id =        ;; gpg key ID for sign mails 
+gpg_exe =           ;; path to the gpg executable (default to gpg if not set)
 ---------------------------------
 """
 
@@ -185,4 +187,13 @@ def get_parsed():
                         ' to have various configuration templates.')
     parser.add_argument('-v', '--version', action='version',
                         version=VERSION)
+    sig = parser.add_argument_group('signing mails', '(require GnuPG)')
+    sig.add_argument('-k', '--gpg-key', metavar='KEY_ID', dest='gpg_key',
+                     help='sign the mails using KEY_ID.')
+    sig.add_argument('--sign', dest='sign', action='store_true',
+                     help='make a clear signature.')
+    sig.add_argument('--detach-sign', dest='detach', action='store_true',
+                     help='make a detached signature.')
+    sig.add_argument('--gpg-exe', dest='gpg_exe', metavar='PATH',
+                     help='Path to the gnuPG executable.')
     return parser

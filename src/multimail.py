@@ -67,7 +67,12 @@ class MailMessage(object):
         self.xmailer = VERSION
         self.delimiter = "=========multimail_delimiter========="
         self.msg = None
-        
+
+    def sign(self, file, *args):
+        with open(file) as f:
+            self.text = f.read()
+
+
 class PlainMsg(MailMessage):
     """Plain text mail object."""
     def __init__(self, sender, receiver, subject, text):
@@ -81,6 +86,7 @@ class PlainMsg(MailMessage):
                 "Date: %s\r\nX-Mailer: %s\r\n\r\n%s"
                 % (self.sender, receiver, self.subject,
                    _time, self.xmailer, self.text))
+
 
 class MimeMsg(MailMessage):
     """Plain text mail object."""
@@ -129,6 +135,13 @@ class MimeMsg(MailMessage):
         if as_string:
             return self.msg.as_string()
         return self.msg
+
+    def sign(self, file, detached):
+        if detached:
+            self.attachments.append((file, 'signature.sig'))
+        else:
+            super(MimeMsg, self).sign(file)
+        self.build()
 
 
 class SendMails(object):
@@ -211,7 +224,7 @@ class SendMails(object):
                 self.errors += self.total - self.step
                 _retval = 3
                 break
-        self.connection.quit()
+        self.quit()
         self.print_progress()
         print
         return _retval
@@ -222,11 +235,14 @@ class SendMails(object):
             % (self.step*100/self.total, self.errors))
         out.flush()
 
+    def quit(self):
+        self.connection.quit()
 
 def main(args):
     parser = parsopts.get_parsed()
     opts = parser.parse_args(args)
     _attachment = []
+    _signed_file = None
     _section = opts.u_set
     if opts.editor and opts.text:
         parser.error("conflict between options -e|--editor and"
@@ -270,6 +286,10 @@ def main(args):
                            " got '%s' instead" % opts.text_type)
     if opts.compression and not any((opts.attachments, opts.archive_name)):
             parser.error("Nothing to compress.")
+    if (opts.detach and opts.sign):
+        parser.error("sign must be clear or detached, not both.")
+    if opts.text_type == 'plain' and opts.detach:
+        parser.error("can't make detached signature in plain text mode")
     if opts.text_type == 'plain':
         if any((opts.compression, opts.attachments, opts.archive_name,)):
             parser.error("can't send attachments in plain text mode")
@@ -365,14 +385,6 @@ def main(args):
         opts.timeout = _timeout or 40
     if opts.timeout < 0:
         parser.error("invalid timeout value: %s" % opts.timeout)
-    """# |||
-    #DEBUG:
-    print 'o',msg_obj
-    print 't',opts.text
-    print 's',opts.subject
-    print 'c|p|h =',opts.secure_conn, opts.port, opts.host
-    print 'sender',opts.sender_addr
-    #"""
     send_obj = SendMails(opts.host, opts.port, opts.secure_conn, opts.timeout)
     _debug = 0
     if config.get(_section, 'debug_mode'):
@@ -391,11 +403,35 @@ def main(args):
     send_obj.delay_time = opts.delay
     if not send_obj.login(opts.login_name, opts.password):
         sys.exit(2)
+    #signing:
+    if (opts.detach or opts.sign):
+        gpg_exe = opts.gpg_exe or config.get(_section, 'gpg_exe')
+        if not gpg_exe or not osp.isfile(gpg_exe):
+            send_obj.quit()
+            parser.error("Can't find gnuPG, surely not here: %s" % gpg_exe)
+        gpg_key = opts.gpg_key or config.get(_section, 'gpg_key_id')
+        if not gpg_key:
+            send_obj.quit()
+            parser.error("can't find the gpg key for signing.")
+        _detach = True if opts.detach else False
+        try:
+            _text = msg_obj.text
+            _signed_file = mmutils.gpg_sign(gpg_exe, gpg_key, _text, _detach)
+        except ValueError:
+            send_obj.quit()
+            raise
+        msg_obj.sign(_signed_file, _detach)
+    # send:
     _ex_val = send_obj.send(msg_obj, opts.recipients)
-    # at the end remove temp archives, if any:
+    # at the end remove temp files, if any:
+    if _signed_file:
+        _attachment.append(_signed_file)
     if _attachment:
         for att in _attachment:
-            os.remove(att)
+            try:
+                os.remove(att)
+            except OSError, e:
+                print str(e)
     sys.exit(_ex_val)
 
 
