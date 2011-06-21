@@ -69,7 +69,7 @@ timeout = 50	    ;; timeout in seconds for blocking operations like the connecti
 debug_mode = 	    ;; no value for disable 
 delay = 0           ;; delay between mail sending
 gpg_key_id =        ;; gpg key ID for sign mails 
-gpg_exe =           ;; path to the gpg executable (default to gpg if not set)
+gpg_exe =           ;; path to the gpg executable
 ---------------------------------
 """
 

@@ -32,6 +32,9 @@ import platform
 import ConfigParser
 
 
+class SignError(Exception):
+    pass
+
 py_version = ''.join(platform.python_version_tuple()[:2])
 if py_version < '26':
     # from the python doc
@@ -108,13 +111,6 @@ def create_archive(paths, arch_type, arch_path=None):
         return None
     return arch_path
 
-#gpg_key_id = '79631020'
-#gpg_exe = 'gpg'
-#'--default-key'
-#'--clearsign' # .asc
-#'_output': '--output %s'
-#--detach-sig  #.sig
-
 
 def build_gpg_cmd(exe, key, infile, outfile, detached):
     s_type = '--clearsign' if not detached else '--detach-sig'
@@ -124,11 +120,12 @@ def build_gpg_cmd(exe, key, infile, outfile, detached):
 
 def do_sign(cmdline):
     try:
-        subp.check_call(cmdline)
-        return True
-    except subp.CalledProcessError:
-        return False
-    
+        return subp.check_call(cmdline), None
+    except subp.CalledProcessError, e:
+        return e.returncode, str(e)
+    except OSError, e:
+        return 1, str(e)
+
 def gpg_sign(gpg_exe, gpg_key_id, text, detach):
     with tempfile.NamedTemporaryFile() as fin:
         to_sign = fin.name
@@ -136,9 +133,11 @@ def gpg_sign(gpg_exe, gpg_key_id, text, detach):
         signed = fout.name
     with open(to_sign, 'w') as f:
         f.write(text)
-    if not do_sign(build_gpg_cmd(gpg_exe, gpg_key_id, to_sign, signed, detach)):
+    retcode, err_msg = do_sign(build_gpg_cmd(
+        gpg_exe, gpg_key_id, to_sign, signed, detach))
+    if retcode != 0:
         os.remove(to_sign)
-        raise ValueError('Unable to sign')
+        raise SignError('Unable to sign: %s' % err_msg)
     os.remove(to_sign)
     return signed
 

@@ -417,7 +417,7 @@ def main(args):
         try:
             _text = msg_obj.text
             _signed_file = mmutils.gpg_sign(gpg_exe, gpg_key, _text, _detach)
-        except ValueError:
+        except mmutils.SignError, e:
             send_obj.quit()
             raise
         msg_obj.sign(_signed_file, _detach)
