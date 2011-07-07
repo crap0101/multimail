@@ -76,7 +76,7 @@ gpg_exe =           ;; path to the gpg executable
 
 import argparse
 
-def get_parsed():
+def get_parser():
     parser = argparse.ArgumentParser(
         description=DESCRIPTION,
         epilog=EPILOG,
@@ -96,13 +96,15 @@ def get_parsed():
                         " extension depending the archive's type will be"
                         ' automatically appended to the given name).'
                         ' This option will be used only if the -c|--compress'
-                        ' option is present, raise an error otherwise). Without'
-                        ' this option a randomly generated name is choosen.'
-                        " In practice, this option's values must be in the same"
-                        ' number of the -a|--attachments ones, for example'
-                        ' a valid use is:'
-                        '  [...] -a FILES_FOR_ARCH1 -a FILES_FOR_ARCH2'
-                        ' -A NAME_OF_ARCH1 NAME_OF_ARCH2 [...] .')
+                        ' option is present, raise an error otherwise). If the'
+                        " option's argument is '-' and the corresponding"
+                        " attachment is a single file or a directory, its name"
+                        ' is used. A valid use is:'
+                        '  [...] -a FILES_FOR_ARCH1 -a FILE -a FILES_FOR_ARCH2'
+                        ' -A NAME_OF_ARCH1 - NAME_OF_ARCH2 -c bz2 [...] .'
+                        ' Or (same result):'
+                        ' [...] -a FILES_FOR_ARCH1 -A NAME_OF_ARRCH1 -a FILE -A -'
+                        ' -a FILES_FOR_ARCH2 -A NAME_OF_ARCH2 -c bz2 [...].')
     parser.add_argument('-c', '--compress', dest='compression', 
                         choices=('tar', 'gz', 'bz2', 'zip'),
                         help='make a (potentially) compressed archive'

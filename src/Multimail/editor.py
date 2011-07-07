@@ -37,14 +37,22 @@ except ImportError:
 class EditorError(Exception):
     pass
 
-def no_curses():
-    """ if the curses module isn't available, read from stdin """
-    print("module curses not found!\n"
-           "Reading from stdin(C-d or C-z to stop typing)")
-    return sys.stdin.read()
+def no_curses(stream=sys.stdin, verbose=True):
+    """
+    If the curses module isn't available,
+    read from *stream* (default: stdin).
+    """
+    if verbose:
+        print("module curses not found!\n"
+              "Reading from stdin(C-d or C-z to stop typing)")
+    return stream.read()
 
 
 def use_ext_editor(editor):
+    """
+    Run *editor* writing in a temporary file.
+    Return the written text.
+    """
     with tempfile.NamedTemporaryFile() as f:
         f_name = f.name
         try:
@@ -52,13 +60,13 @@ def use_ext_editor(editor):
         except (subprocess.CalledProcessError,
                 OSError), e:
             raise EditorError("error editing text: %s" % str(e))
-        with open(f_name) as f:
-            text = f.read()
+    with open(f_name) as f:
+        text = f.read()
     return text
 
 
 def _write_chr_test(func):
-    """ debug only """
+    """Debug only."""
     testFile = open("ct", "w")
     def inner(inst):
         res = func(inst)
@@ -71,7 +79,8 @@ def _write_chr_test(func):
 
 
 class Editor(object):
-    """ primitive text editor using the curses library
+    """
+    Primitive text editor using the curses library
     KEYS:
         C-h  > shifted delete, delete the previous character
         C-d  > delete the char at the current position
@@ -358,8 +367,6 @@ def use_curses_editor():
 
 if __name__ == '__main__':
     if YOU_HAVE_CURSES:
-        ed = Editor()
-        ed.edit()
-        print ed.save_text()
+        print use_curses_editor()
     else:
         print no_curses()

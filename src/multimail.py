@@ -35,11 +35,11 @@ except ImportError:                                #   |
 try:                                               #   | subpackages has been
     from email.mime.base import MIMEBase           #   | renamed nor moved, so
 except ImportError:                                #   | we can try to import
-    from email.MIMEBase import MIMEBase            #   | the right module 
-try:                                               #   | for running Python's 
-    from email.mime.multipart import MIMEMultipart #   | version above 2.1 
-except ImportError:                                #   | 
-    from email.MIMEMultipart import MIMEMultipart  #   |______ 
+    from email.MIMEBase import MIMEBase            #   | the right module
+try:                                               #   | for running Python's
+    from email.mime.multipart import MIMEMultipart #   | version above 2.1
+except ImportError:                                #   |
+    from email.MIMEMultipart import MIMEMultipart  #   |______
 try:                                                      #   |
     from email.mime.nonmultipart import MIMENonMultipart  #   |
 except ImportError:                                       #   |
@@ -123,8 +123,8 @@ class MimeMsg(MailMessage):
                 Encoders.encode_base64(to_attach)
                 _name = osp.basename(attachment) if not _name else _name
                 to_attach.add_header(
-                    'Content-Disposition', 
-                    'attachment; filename="%s"' % _name) 
+                    'Content-Disposition',
+                    'attachment; filename="%s"' % _name)
                 self.msg.attach(to_attach)
 
     def get_message(self, receiver=None, as_string=True):
@@ -156,7 +156,7 @@ class SendMails(object):
         self.step = 0
         self.errors = 0
         self.total = 0
-        
+
     def _connect(self):
         # TODO: timeout not available in python < 2.6
         if self.secure_conn:
@@ -239,7 +239,16 @@ class SendMails(object):
         self.connection.quit()
 
 def main(args):
-    parser = parsopts.get_parsed()
+    def clean():
+        if _signed_file:
+            _attachment.append(_signed_file)
+        if _attachment:
+            for att in _attachment:
+                try:
+                    os.remove(att)
+                except OSError, e:
+                    print ("clean: {0}".format(str(e)))
+    parser = parsopts.get_parser()
     opts = parser.parse_args(args)
     _attachment = []
     _signed_file = None
@@ -303,7 +312,16 @@ def main(args):
             elif opts.compression and not opts.attachments:
                 parser.error('No attachments to compress.')
             _dirs = _files = 0
-            for group in opts.attachments:
+            for i, group in enumerate(opts.attachments):
+                ## for single attachments use the {file|dir}name
+                ## if the corresponding -A option is '-'
+                if len(group) == 1:
+                    if opts.archive_name[i] == '-':
+                        _saname = osp.basename(group[0].rstrip(os.sep))
+                        opts.archive_name[i] = _saname
+                elif opts.archive_name[i] == '-':
+                    parser.error("Too many attachments for {0}: {1}".format(
+                        opts.archive_name[i], group))
                 for att in group:
                     if osp.isfile(att):
                         _files += 1
@@ -317,12 +335,14 @@ def main(args):
                                  " naming:\narchives = %d\nnames = %d" %
                                  (len(opts.attachments), len(opts.archive_name)))
                 _attachment = []
-                for group in opts.attachments: 
-                    _attachment.append(mmutils.create_archive(
-                        group, opts.compression))
-                if not _attachment or not all(_attachment):
-                    raise RuntimeError("Something went wrong creating archives"
-                                       "mmutils.create_archive return None")
+                for group in opts.attachments:
+                    try:
+                        _attachment.append(mmutils.create_archive(
+                            group, opts.compression))
+                    except (mmutils.ArchiveError, IOError) as e:
+                        clean()
+                        raise mmutils.ArchiveError(
+                            "Can't create archive: %s" % str(e))
                 # add extension
                 _ext = ('.tar' if opts.compression in ('gz', 'bz2')
                         else '') + '.' + opts.compression
@@ -344,6 +364,7 @@ def main(args):
                 opts.text = editor.use_ext_editor(_editor)
             except editor.EditorError, e:
                 print e
+                clean()
                 sys.exit(1)
         elif editor.YOU_HAVE_CURSES:
             opts.text = editor.use_curses_editor()
@@ -363,6 +384,7 @@ def main(args):
         if _host:
             opts.host = _host
         else:
+            clean()
             parser.error("No host specified")
     _secure_conn = False
     if config.get(_section, 'secure_conn'):
@@ -374,6 +396,7 @@ def main(args):
         try:
             opts.port = int(_port)
         except ValueError:
+            clean()
             parser.error("No port specified or not a valid one: '%s'" % _port)
     if opts.timeout is None:
         _timeout = config.get(_section, 'timeout')
@@ -381,6 +404,7 @@ def main(args):
             try:
                 _timeout = int(_timeout)
             except ValueError:
+                clean()
                 parser.error("Not a valid timeout value: '%s'" % _timeout)
         opts.timeout = _timeout or 40
     if opts.timeout < 0:
@@ -395,23 +419,28 @@ def main(args):
         try:
             opts.delay = float(_delay)
         except ValueError:
+            clean()
             parser.error("Not a valid delay value: '%s'" % _delay)
     if opts.delay < 0:
+        clean()
         parser.error("delay must be >= 0, got %f instead" % opts.delay)
     opts.password = (opts.password or (config.get(_section, 'password') or None))
     send_obj.debug_level = opts.debug
     send_obj.delay_time = opts.delay
     if not send_obj.login(opts.login_name, opts.password):
+        clean()
         sys.exit(2)
     #signing:
     if (opts.detach or opts.sign):
         gpg_exe = opts.gpg_exe or config.get(_section, 'gpg_exe')
         if not gpg_exe or not osp.isfile(gpg_exe):
             send_obj.quit()
+            clean()
             parser.error("Can't find gnuPG, surely not here: %s" % gpg_exe)
         gpg_key = opts.gpg_key or config.get(_section, 'gpg_key_id')
         if not gpg_key:
             send_obj.quit()
+            clean()
             parser.error("can't find the gpg key for signing.")
         _detach = True if opts.detach else False
         try:
@@ -419,19 +448,12 @@ def main(args):
             _signed_file = mmutils.gpg_sign(gpg_exe, gpg_key, _text, _detach)
         except mmutils.SignError, e:
             send_obj.quit()
-            raise
+            clean()
+            raise mmutils.SignError(str(e))
         msg_obj.sign(_signed_file, _detach)
     # send:
     _ex_val = send_obj.send(msg_obj, opts.recipients)
-    # at the end remove temp files, if any:
-    if _signed_file:
-        _attachment.append(_signed_file)
-    if _attachment:
-        for att in _attachment:
-            try:
-                os.remove(att)
-            except OSError, e:
-                print str(e)
+    clean()
     sys.exit(_ex_val)
 
 

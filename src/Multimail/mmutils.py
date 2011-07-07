@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# multimail - inviatore di email (mmutils.py module)
+# multimail - massive email sender (mmutils.py module)
 
 # Copyright (C) 2009  Marco Chieppa
 
@@ -35,6 +35,23 @@ import ConfigParser
 class SignError(Exception):
     pass
 
+class ArchiveError(Exception):
+    pass
+
+class ArchiveClosing(object):
+    def __init__(self, target):
+        self.target = target
+    def __enter__(self):
+        return self.target
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.target.close()
+        if exc_type is not None:
+            if isinstance(self.target, tarfile.TarFile):
+                os.remove(self.target.name)
+            elif isinstance(self.target, zipfile.ZipFile):
+                os.remove(self.target.filename)
+
+                
 py_version = ''.join(platform.python_version_tuple()[:2])
 if py_version < '26':
     # from the python doc
@@ -52,17 +69,8 @@ if py_version < '26':
             pass
 else:
     from itertools import izip_longest
-if py_version < '27':
-    from contextlib import closing
-else:
-    class closing(object):
-        def __init__(self, target):
-            self.target = target
-        def __enter__(self):
-            return self.target
-        def __exit__(self, exc_type, exc_value, traceback):
-            self.target.close()
 
+                
 def _walk(path):
     """A walk for zip archives."""
     for base_dir, sub_dirs, files in os.walk(path):
@@ -78,7 +86,8 @@ def create_archive(paths, arch_type, arch_path=None):
     *paths*. Use tempfile if *arch_path* is not given,
     otherwise *arch_path* is used and must be a valid path name.
     Return the path to the archive (which is *arch_path* if
-    provided) or None if the archive type is not a supported one.
+    provided) or raise ArchiveError if the archive type is not
+    a supported one or the archive can't be created.
     """
     atype = arch_type.lower()
     if not arch_path:
@@ -86,14 +95,16 @@ def create_archive(paths, arch_type, arch_path=None):
             c = '.tar' if atype in ('gz', 'bz2') else ''
             arch_path = f.name + c + '.' + atype
     if atype == 'zip':
-        with closing(zipfile.ZipFile(arch_path, 'w')) as archive:
+        with ArchiveClosing(zipfile.ZipFile(arch_path, 'w')) as archive:
             for path in paths:
                 if osp.isfile(path):
                     archive.write(path, osp.basename(path))
-                if osp.isdir(path):
+                elif osp.isdir(path):
                     path = path.rstrip(os.sep)
                     spath = path + os.sep
                     _basename = osp.basename(path)
+                    if not path:
+                        path = os.sep
                     archive.write(path, _basename)
                     for p in _walk(path):
                         if osp.isdir(p):
@@ -102,13 +113,19 @@ def create_archive(paths, arch_type, arch_path=None):
                         else:
                             archive.write(p, osp.join(
                                 _basename, spath.join(p.split(spath)[1:])))
+                else:
+                    raise ArchiveError(
+                        "No such file or directory: {0}".format(path))
     elif atype in ('tar', 'gz', 'bz2'):
         aop = {'tar':'w:', 'gz':'w:gz', 'bz2':'w:bz2'}
-        with closing(tarfile.open(arch_path, aop[atype])) as archive:
+        with ArchiveClosing(tarfile.open(arch_path, aop[atype])) as archive:
             for path in paths:
-                archive.add(path, osp.basename(path.rstrip(os.sep)))
+                try:
+                    archive.add(path, osp.basename(path.rstrip(os.sep)))
+                except OSError as e:
+                    raise ArchiveError(str(e))
     else:
-        return None
+        raise ArchiveError("Unknown archive type: {0}".format(atype))
     return arch_path
 
 
@@ -118,9 +135,9 @@ def build_gpg_cmd(exe, key, infile, outfile, detached):
         exe, key, outfile, s_type, infile)
     return shlex.split(cmdline)  #ValueError: (no closing quotation)
 
-def do_sign(cmdline):
+def do_sign(cmdline, stdout=None, stderr=None):
     try:
-        return subp.check_call(cmdline), None
+        return subp.check_call(cmdline, stdout=stdout, stderr=stderr), None
     except subp.CalledProcessError, e:
         return e.returncode, str(e)
     except OSError, e:
@@ -141,15 +158,15 @@ def gpg_sign(gpg_exe, gpg_key_id, text, detach):
     os.remove(to_sign)
     return signed
 
-def mail_format_time():
+def mail_format_time(gmtime=None, localtime=None):
     """
     Return the actual time and date as a string in a
     format compliant with the RFC822 specification.
     """
-    gtime = time.gmtime()
-    ltime = time.localtime()
-    _delta = abs(ltime.tm_hour - gtime.tm_hour)
-    delta = 0 if not _delta else 24 % _delta
+    gtime = gmtime or time.gmtime()
+    ltime = localtime or time.localtime()
+    delta = abs(ltime.tm_hour - gtime.tm_hour)
+    #delta = 0 if not _delta else 24 % _delta
     diff = "%s%02d00" % ('-' if ltime < gtime else '+', delta)
     return "%s %s" % (time.strftime(
         "%a, %d %b %Y %H:%M:%S", time.localtime()), diff)
