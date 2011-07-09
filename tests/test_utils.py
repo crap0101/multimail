@@ -10,7 +10,11 @@ import subprocess as sbp
 import sys
 import time
 import glob
-import ConfigParser
+try:
+    import ConfigParser as configparser
+except ImportError:
+    import configparser
+import platform
 import zipfile
 import tarfile
 import tempfile
@@ -20,7 +24,7 @@ import unittest
 pwd = op_.dirname(op_.realpath(__file__))
 data_dir = op_.join(pwd, 'data')
 
-fake_exe = 'python'
+fake_exe = 'python%s.%s' % tuple(platform.python_version_tuple()[:2])
 config_file_opts = ["host", "port", "ssl_port", "secure_conn",
                     "timeout", "debug_mode", "delay", "editor",
                     "sender", "login", "password", "text_type",]
@@ -45,17 +49,24 @@ class TestArchives(unittest.TestCase):
         for p, t in err_args:
             self.assertRaises(mmutils.ArchiveError,
                               mmutils.create_archive, p, t)
-        func_args.append(([os.sep], 'tar'))
-        func_args.append(([os.sep], 'zip'))
-        for p, t in func_args:
-            self.assertRaises(IOError,
-                              mmutils.create_archive, p, t, '/foo/bar/baz')
         for args in func_args[:2]:
             ret_path = mmutils.create_archive(*args)
             self.assertNotEqual(ret_path, None)
             self.assertTrue(op_.exists(ret_path))
             self.assertTrue(ret_path.endswith(args[1]))
             os.remove(ret_path)
+
+    def testFailCreation(self):
+        if platform.python_version_tuple()[0] == '3':
+            self.skipTest('why? see http://bugs.python.org/issue11513')
+        # Fail in python3.2 , see http://bugs.python.org/issue11513
+        func_args = list(([os.getcwd()], atype)
+                    for atype in ('tar', 'zip', 'gz', 'bz2'))
+        func_args.append(([os.sep], 'tar'))
+        func_args.append(([os.sep], 'zip'))
+        for p, t in func_args:
+            self.assertRaises(IOError,
+                              mmutils.create_archive, p, t, '/foo/bar/spam')
 
     def testClosing(self):
         atypes = ('zip', 'tar', 'gz', 'bz2')
@@ -114,12 +125,12 @@ class TestConfig(unittest.TestCase):
     def testRead(self):
         for file in glob.glob(op_.join(data_dir, '*.cfg')):
             config = mmutils.read_config(file)
-            self.assertTrue(isinstance(config, ConfigParser.ConfigParser))
+            self.assertTrue(isinstance(config, configparser.ConfigParser))
             for opt in config_file_opts:
                 config.get('DEFAULT', opt)
             for opt in config_file_no_opts:
                 self.assertRaises(
-                    ConfigParser.NoOptionError,
+                    configparser.NoOptionError,
                     config.get, 'DEFAULT', opt)
                 
     def testFakeConfig(self):
@@ -128,7 +139,7 @@ class TestConfig(unittest.TestCase):
             for opt in config_file_opts:
                 config.get(section, opt)
                 self.assertRaises(
-                    ConfigParser.NoOptionError,
+                    configparser.NoOptionError,
                     config.get, 'DEFAULT', opt)
         config = mmutils.fake_config('DEFAULT')
         for opt in config_file_opts:

@@ -19,7 +19,7 @@
 # along with this program; if not see <http://www.gnu.org/licenses/>
 
 
-from __future__ import with_statement
+
 import os
 import time
 import shlex
@@ -29,7 +29,14 @@ import zipfile
 import tarfile
 import tempfile
 import platform
-import ConfigParser
+try:
+    import ConfigParser as configparser
+except ImportError:
+    import configparser
+try:
+    from itertools import izip_longest
+except ImportError:
+    from itertools import zip_longest as izip_longest
 
 
 class SignError(Exception):
@@ -51,26 +58,7 @@ class ArchiveClosing(object):
             elif isinstance(self.target, zipfile.ZipFile):
                 os.remove(self.target.filename)
 
-                
-py_version = ''.join(platform.python_version_tuple()[:2])
-if py_version < '26':
-    # from the python doc
-    from itertools import chain, repeat, izip
-    def izip_longest(*args, **kwds):
-        fillvalue = kwds.get('fillvalue')
-        def sentinel(counter = ([fillvalue]*(len(args)-1)).pop):
-            yield counter()
-        fillers = repeat(fillvalue)
-        iters = [chain(it, sentinel(), fillers) for it in args]
-        try:
-            for tup in izip(*iters):
-                yield tup
-        except IndexError:
-            pass
-else:
-    from itertools import izip_longest
 
-                
 def _walk(path):
     """A walk for zip archives."""
     for base_dir, sub_dirs, files in os.walk(path):
@@ -138,9 +126,9 @@ def build_gpg_cmd(exe, key, infile, outfile, detached):
 def do_sign(cmdline, stdout=None, stderr=None):
     try:
         return subp.check_call(cmdline, stdout=stdout, stderr=stderr), None
-    except subp.CalledProcessError, e:
+    except subp.CalledProcessError as e:
         return e.returncode, str(e)
-    except OSError, e:
+    except OSError as e:
         return 1, str(e)
 
 def gpg_sign(gpg_exe, gpg_key_id, text, detach):
@@ -174,7 +162,7 @@ def mail_format_time(gmtime=None, localtime=None):
 
 def read_config(file):
     """Return a configparser object from *file*."""
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.readfp(open(file))
     return config
 
@@ -182,7 +170,7 @@ def fake_config(section):
     opts = ["host", "port", "ssl_port", "secure_conn",
             "timeout", "debug_mode", "delay", "editor",
             "sender", "login", "password", "text_type",]
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     if section != 'DEFAULT':
         config.add_section(section)
     for opt in opts:

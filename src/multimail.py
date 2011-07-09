@@ -20,6 +20,8 @@
 
 
 # IMPORTS #
+from __future__ import print_function
+
 import os
 import os.path as osp
 import sys
@@ -44,14 +46,20 @@ try:                                                      #   |
     from email.mime.nonmultipart import MIMENonMultipart  #   |
 except ImportError:                                       #   |
     from email.MIMENonMultipart import MIMENonMultipart   #   |
-from email import Encoders                                # __|
+try:                                                      #   |
+    from email import Encoders                            #   |
+except ImportError:                                       #   |
+    from email import encoders as Encoders                # __|
 
+import platform
+PY_VERSION = platform.python_version_tuple()[0]
+if PY_VERSION < '3':
+    input = raw_input
 
 # LOCAL IMPORTS #
 from Multimail import parsopts
 from Multimail import mmutils
 from Multimail import editor
-from Multimail import ssmtplib
 
 VERSION = parsopts.VERSION
 
@@ -160,12 +168,8 @@ class SendMails(object):
     def _connect(self):
         # TODO: timeout not available in python < 2.6
         if self.secure_conn:
-            if hasattr(smtplib, 'SMTP_SSL'):
-                self.connection = smtplib.SMTP_SSL(
-                    self.host, self.port, timeout=self.timeout)
-            else:
-                self.connection = ssmtplib.SMTP_SSL(
-                    self.host, self.port, timeout=self.timeout)
+            self.connection = smtplib.SMTP_SSL(
+                self.host, self.port, timeout=self.timeout)
         else:
             self.connection = smtplib.SMTP(
                 self.host, self.port, timeout=self.timeout)
@@ -174,8 +178,8 @@ class SendMails(object):
     def connect(self):
         try:
             self._connect()
-        except smtplib.SMTPConnectError, e:
-            print "ERROR during connection: %s" % str(e)
+        except smtplib.SMTPConnectError as e:
+            print("ERROR during connection: %s" % str(e))
             return False
         return True
 
@@ -191,14 +195,14 @@ class SendMails(object):
         self.connection.set_debuglevel(self.debug_level)
         try:
             self.connection.login(login_name, pwd)
-        except smtplib.SMTPAuthenticationError, e:
-            print "Authentication Error: invalid userID or password"
+        except smtplib.SMTPAuthenticationError as e:
+            print("Authentication Error: invalid userID or password")
             return False
-        except smtplib.SMTPHeloError, e:
-            print "SMTPHelo Error: no response from %s" % self.host
+        except smtplib.SMTPHeloError as e:
+            print("SMTPHelo Error: no response from %s" % self.host)
             return False
-        except smtplib.SMTPException, e:
-            print "No suitable authentication method was found."
+        except smtplib.SMTPException as e:
+            print("No suitable authentication method was found.")
             return False
         return True
 
@@ -215,18 +219,18 @@ class SendMails(object):
             except (smtplib.SMTPDataError,
                     smtplib.SMTPRecipientsRefused,
                     smtplib.SMTPHeloError,
-                    smtplib.SMTPSenderRefused,), e:
+                    smtplib.SMTPSenderRefused,) as e:
                 self.errors += 1
                 _retval = 255
-                print "%s [when sending to %s]" %s (str(e), rec)
-            except smtplib.SMTPServerDisconnected, e:
-                print 'Error: disconnected from the server: %s' % e
+                print("%s [when sending to %s]" %s (str(e), rec))
+            except smtplib.SMTPServerDisconnected as e:
+                print('Error: disconnected from the server: %s' % e)
                 self.errors += self.total - self.step
                 _retval = 3
                 break
         self.quit()
         self.print_progress()
-        print
+        print()
         return _retval
 
     def print_progress(self, out=sys.stdout):
@@ -246,7 +250,7 @@ def main(args):
             for att in _attachment:
                 try:
                     os.remove(att)
-                except OSError, e:
+                except OSError as e:
                     print ("clean: {0}".format(str(e)))
     parser = parsopts.get_parser()
     opts = parser.parse_args(args)
@@ -267,7 +271,7 @@ def main(args):
                     else opts.custom_config_file)
         try:
             config = mmutils.read_config(cfg_path)
-        except (IOError, ConfigParser.ParsingError), e:
+        except (IOError, ConfigParser.ParsingError) as e:
             parser.error("Error reading %s: no file or not valid one: %s"
             % (cfg_path, str(e)))
     for file in opts.from_file:
@@ -356,14 +360,14 @@ def main(args):
                 opts.attachments = list(mmutils.izip_longest(
                     it.chain(*opts.attachments), ()))
     if not opts.subject:
-        opts.subject = raw_input("email's subject [hit RETURN when done]: ")
+        opts.subject = input("email's subject [hit RETURN when done]: ")
     if not opts.text:
         _editor = opts.editor or config.get(_section, 'editor')
         if _editor:
             try:
                 opts.text = editor.use_ext_editor(_editor)
-            except editor.EditorError, e:
-                print e
+            except editor.EditorError as e:
+                print(e)
                 clean()
                 sys.exit(1)
         elif editor.YOU_HAVE_CURSES:
@@ -446,7 +450,7 @@ def main(args):
         try:
             _text = msg_obj.text
             _signed_file = mmutils.gpg_sign(gpg_exe, gpg_key, _text, _detach)
-        except mmutils.SignError, e:
+        except mmutils.SignError as e:
             send_obj.quit()
             clean()
             raise mmutils.SignError(str(e))

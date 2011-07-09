@@ -7,12 +7,16 @@
 import sys
 import os
 import os.path as op_
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import subprocess as sbp
+import platform
 import unittest
 
 pwd = op_.dirname(op_.realpath(__file__))
-p_exe = 'python'
+p_exe = 'python%s.%s' % tuple(platform.python_version_tuple()[:2])
 m_exe = op_.join(op_.split(pwd)[0], 'src', 'multimail.py')
 
 try:

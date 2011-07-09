@@ -9,3 +9,10 @@ changelog: multimail 2.2.1 (2011-06-14)
   * some tweak on temporary archive creation for attachments
   * tests improved
   * other stuffs
+
+changelog: multimail 2.2.2 (2011-07-09)
+  * needs at least python2.6 (won't work with python2.5 anymore)
+  * try to be compatible from python2.6 to python3.x
+    (actually the *editor* module won't work on python3, need fix)
+  * test improved
+  * other stuff

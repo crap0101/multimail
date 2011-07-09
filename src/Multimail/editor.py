@@ -23,6 +23,8 @@ This module implements a primitive text editor using curses.
 """
 
 
+from __future__ import print_function
+
 import sys
 import tempfile
 import subprocess
@@ -38,8 +40,7 @@ class EditorError(Exception):
     pass
 
 def no_curses(stream=sys.stdin, verbose=True):
-    """
-    If the curses module isn't available,
+    """If the curses module isn't available,
     read from *stream* (default: stdin).
     """
     if verbose:
@@ -49,8 +50,7 @@ def no_curses(stream=sys.stdin, verbose=True):
 
 
 def use_ext_editor(editor):
-    """
-    Run *editor* writing in a temporary file.
+    """Run *editor* writing in a temporary file.
     Return the written text.
     """
     with tempfile.NamedTemporaryFile() as f:
@@ -58,7 +58,7 @@ def use_ext_editor(editor):
         try:
             subprocess.check_call([editor, f_name])
         except (subprocess.CalledProcessError,
-                OSError), e:
+                OSError) as e:
             raise EditorError("error editing text: %s" % str(e))
     with open(f_name) as f:
         text = f.read()
@@ -126,33 +126,33 @@ class Editor(object):
 
     #@_write_chr_test
     def _scan(self):
-        """ get the next input """
+        """Get the next input """
         return self.win.getch()
 
     def _insert_line(self, line):
-        """ insert a line at the given position """
+        """Insert a line at the given position """
         self.table.insert(self._actualY, line)
         self.table.pop()
 
     def _fill(self, line):
-        """ fill ``line'' with the missing positions """
-        toFill = len(filter(None, self.table[line]))
+        """Fill ``line'' with the missing positions """
+        toFill = len([_f for _f in self.table[line] if _f])
         self.table[line].extend([''] *(self.maxX - toFill))
         del self.table[line][self.maxX:]
 
     def _insert_chr(self, string):
-        """ insert the given char or string at the current position, moving
+        """Insert the given char or string at the current position, moving
         right the line by the length's input """
         self.table[self._actualY].insert(self._actualX, string)
         self.table[self._actualY].pop()
 
     def _cancel_back(self, y, x):
-        """ delete the char at the current position, moving left the
+        """Delete the char at the current position, moving left the
         current line or up to 1 the next line """
         self._delete_chr()
         if y < self.maxY:
-            chrs = filter(None, self.table[y][x:])
-            nextl = filter(None, self.table[y + 1])
+            chrs = [_f for _f in self.table[y][x:] if _f]
+            nextl = [_f for _f in self.table[y + 1] if _f]
             if not chrs and len(nextl) < self.maxX - x + 1:
                 del self.table[y][x:]
                 self.table[y].extend(self.table[y + 1])
@@ -161,18 +161,18 @@ class Editor(object):
                 self.table.append(self._new_line[:])
 
     def _delete_chr(self):
-        """ delete the char at the current position, moving
+        """Delete the char at the current position, moving
         right the line by the input length """
         self.table[self._actualY].pop(self._actualX)
         self.table[self._actualY].append('')
 
     def _delete_line(self):
-        """ delete the line at the actual position """
+        """Delete the line at the actual position """
         del self.table[self._actualY]
         self.table.append(self._new_line[:])
 
     def _cut_until_eol(self):
-        """ cut the line from the actual position until the EOL
+        """Cut the line from the actual position until the EOL
         and save that in the buffer """
         self.buffer = self.table[self._actualY][self._actualX:self.maxX + 1]
         del self.table[self._actualY][self._actualX:]
@@ -180,9 +180,9 @@ class Editor(object):
         self._fill(self._actualY)
 
     def _paste(self):
-        """ paste the buffer's content at the current position, moving
+        """Paste the buffer's content at the current position, moving
         right the line by the buffer length """
-        for char in filter(None, self.buffer):
+        for char in [_f for _f in self.buffer if _f]:
             self.table[self._actualY].insert(self._actualX, char)
             self._actualX += 1
         self._fill(self._actualY)
@@ -192,7 +192,7 @@ class Editor(object):
     def _goto_max(self, line):
         """ go to the position of the last chr of line 'line' """
         self._actualY = line
-        newX = len(filter(None, self.table[self._actualY]))
+        newX = len([_f for _f in self.table[self._actualY] if _f])
         if self._actualX > newX:
             self._actualX = newX
 
@@ -220,7 +220,7 @@ class Editor(object):
                 self._actualX = 0
         elif c in(curses.KEY_ENTER, 10, ascii.CR):  # carriage return
             if y < self.maxY:
-                if any(filter(None, self.table[y][x:])):
+                if any([_f for _f in self.table[y][x:] if _f]):
                     self._cut_until_eol()
                     self._actualY += 1
                     self._actualX = 0
@@ -240,7 +240,7 @@ class Editor(object):
                 self._actualX = self.maxX # trick for _goto_max
                 self._goto_max(self._actualY - 1)
                 _delta = self.maxX - self._actualX + 1
-                chrs = filter(None, _buffer)
+                chrs = [_f for _f in _buffer if _f]
                 del self.table[self._actualY + 1]
                 if len(chrs) < _delta:
                     self.table.append(self._new_line[:])
@@ -290,7 +290,7 @@ class Editor(object):
                         self._goto_max(self._actualY + 1)
                 elif _cc == 67 or c == curses.KEY_RIGHT:
                     if x < self.maxX:
-                        if x < len(filter(None, self.table[y])):
+                        if x < len([_f for _f in self.table[y] if _f]):
                             self._actualX += 1
                         elif y < self.maxY:
                             self._actualY += 1
@@ -367,6 +367,6 @@ def use_curses_editor():
 
 if __name__ == '__main__':
     if YOU_HAVE_CURSES:
-        print use_curses_editor()
+        print(use_curses_editor())
     else:
-        print no_curses()
+        print(no_curses())

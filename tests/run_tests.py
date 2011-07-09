@@ -3,6 +3,8 @@
 
 # multimail - massive mail sender | run_tests file
 
+from __future__ import print_function
+
 import re
 import os
 import sys
@@ -19,8 +21,8 @@ if __name__ == '__main__':
     reg = re.compile(r'^test_.*\.py$')
     tests_suite = unittest.TestSuite()
     for testfile in filter(reg.match,  os.listdir(os.getcwd())):
-        print "### importing module %s ###" % testfile
+        print("### importing module %s ###" % testfile)
         module = __import__(os.path.splitext(testfile)[0])
         tests_suite.addTests(module.load_tests())
-    print "### RUNNING TESTS ###"
+    print("### RUNNING TESTS ###")
     unittest.TextTestRunner(verbosity=2).run(tests_suite)

@@ -19,21 +19,19 @@
 # along with this program; if not see <http://www.gnu.org/licenses/>
 
 
-VERSION = 'multimail 2.2.1'
+VERSION = 'multimail 2.2.2'
 
 DESCRIPTION = """
                  multimail - massive email sender
 NAME: multimail
-VERSION: 2.2.1
+VERSION: 2.2.2
 AUTHORS: Marco Chieppa (aka crap0101)
-DATE:    2011-06-17
+DATE:    2011-07-09
 LICENSE: GNU GPL v3 or later
 REQUIRES:
-  - Python < 3
+  - Python >= 2.6
   - argparse module (for python < 2.7)
 OPTIONAL:
-  - ssmtplib (for Python <2.6) http://aleph-null.tv/downloads/ssmtplib.py
-    (but it's already shipped with the program)
   - ncurses module (for the internal text editor).
 """
 
@@ -66,9 +64,9 @@ secure_conn = true  ;; use ssl encryption
 port = 25           ;; used when secure_conn is false.
 ssl_port = 465      ;; used when secure_conn is true (ssl encryption)
 timeout = 50	    ;; timeout in seconds for blocking operations like the connection attempt
-debug_mode = 	    ;; no value for disable 
+debug_mode = 	    ;; no value for disable
 delay = 0           ;; delay between mail sending
-gpg_key_id =        ;; gpg key ID for sign mails 
+gpg_key_id =        ;; gpg key ID for sign mails
 gpg_exe =           ;; path to the gpg executable
 ---------------------------------
 """
@@ -105,7 +103,7 @@ def get_parser():
                         ' Or (same result):'
                         ' [...] -a FILES_FOR_ARCH1 -A NAME_OF_ARRCH1 -a FILE -A -'
                         ' -a FILES_FOR_ARCH2 -A NAME_OF_ARCH2 -c bz2 [...].')
-    parser.add_argument('-c', '--compress', dest='compression', 
+    parser.add_argument('-c', '--compress', dest='compression',
                         choices=('tar', 'gz', 'bz2', 'zip'),
                         help='make a (potentially) compressed archive'
                         ' of the attachments before attach them to the mail.'
