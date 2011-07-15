@@ -12,11 +12,10 @@ try:
 except ImportError:
     from io import StringIO
 import subprocess as sbp
-import platform
 import unittest
 
 pwd = op_.dirname(op_.realpath(__file__))
-p_exe = 'python%s.%s' % tuple(platform.python_version_tuple()[:2])
+p_exe = sys.executable
 m_exe = op_.join(op_.split(pwd)[0], 'src', 'multimail.py')
 
 try:

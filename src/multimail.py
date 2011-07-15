@@ -52,8 +52,8 @@ except ImportError:                                       #   |
     from email import encoders as Encoders                # __|
 
 import platform
-PY_VERSION = platform.python_version_tuple()[0]
-if PY_VERSION < '3':
+PY_VERSION = int(platform.python_version_tuple()[0])
+if PY_VERSION < 3:
     input = raw_input
 
 # LOCAL IMPORTS #
@@ -244,17 +244,15 @@ class SendMails(object):
 
 def main(args):
     def clean():
-        if _signed_file:
-            _attachment.append(_signed_file)
-        if _attachment:
-            for att in _attachment:
-                try:
-                    os.remove(att)
-                except OSError as e:
-                    print ("clean: {0}".format(str(e)))
+        to_clean = filter(None, (_attachment, _signed_file))
+        for path in to_clean:
+            try:
+                os.remove(path)
+            except OSError as e:
+                print ("clean: {0}".format(str(e)))
     parser = parsopts.get_parser()
     opts = parser.parse_args(args)
-    _attachment = []
+    _attachment = None
     _signed_file = None
     _section = opts.u_set
     if opts.editor and opts.text:
@@ -297,8 +295,8 @@ def main(args):
                 parser.error("invalid values for text_type in the config file,"
                            " must be one of ['html', 'text', 'plain'],"
                            " got '%s' instead" % opts.text_type)
-    if opts.compression and not any((opts.attachments, opts.archive_name)):
-            parser.error("Nothing to compress.")
+    if opts.compression and not opts.attachments:
+        parser.error("Nothing to compress.")
     if (opts.detach and opts.sign):
         parser.error("sign must be clear or detached, not both.")
     if opts.text_type == 'plain' and opts.detach:
@@ -307,58 +305,35 @@ def main(args):
         if any((opts.compression, opts.attachments, opts.archive_name,)):
             parser.error("can't send attachments in plain text mode")
     else:
+        if opts.archive_name and not opts.attachments:
+            parser.error('No attachments for naming.')
+        elif opts.archive_name and not opts.compression:
+            parser.error("Can't naming without compression.")
+        elif opts.compression and not opts.attachments:
+            parser.error('No attachments for compression.')
         if opts.attachments:
-            opts.archive_name = list(it.chain(*opts.archive_name))
-            if opts.archive_name and not opts.attachments:
-                parser.error('No archive for naming.')
-            elif opts.archive_name and not opts.compression:
-                parser.error("Can't naming non-archive files.")
-            elif opts.compression and not opts.attachments:
-                parser.error('No attachments to compress.')
-            _dirs = _files = 0
-            for i, group in enumerate(opts.attachments):
-                ## for single attachments use the {file|dir}name
-                ## if the corresponding -A option is '-'
-                if len(group) == 1:
-                    if opts.archive_name[i] == '-':
-                        _saname = osp.basename(group[0].rstrip(os.sep))
-                        opts.archive_name[i] = _saname
-                elif opts.archive_name[i] == '-':
-                    parser.error("Too many attachments for {0}: {1}".format(
-                        opts.archive_name[i], group))
-                for att in group:
-                    if osp.isfile(att):
-                        _files += 1
-                    elif osp.isdir(att):
-                        _dirs += 1
-                    else:
-                        parser.error("can't attach %s [invalid type]" % att)
+            _dirs = [_p for _p in opts.attachments if osp.isdir(_p)]
+            if _dirs and not opts.compression:
+                parser.error('directories need compression.')
             if opts.compression:
-                if len(opts.attachments) != len(opts.archive_name):
-                    parser.error("wrong number of argument for archive"
-                                 " naming:\narchives = %d\nnames = %d" %
-                                 (len(opts.attachments), len(opts.archive_name)))
-                _attachment = []
-                for group in opts.attachments:
-                    try:
-                        _attachment.append(mmutils.create_archive(
-                            group, opts.compression))
-                    except (mmutils.ArchiveError, IOError) as e:
-                        clean()
-                        raise mmutils.ArchiveError(
-                            "Can't create archive: %s" % str(e))
-                # add extension
+                try:
+                    _attachment = mmutils.create_archive(
+                        opts.attachments, opts.compression)
+                except (mmutils.ArchiveError, IOError) as e:
+                    clean()
+                    raise mmutils.ArchiveError(
+                        "Can't create archive: %s" % str(e))
+                # add extension to attachment's name
                 _ext = ('.tar' if opts.compression in ('gz', 'bz2')
                         else '') + '.' + opts.compression
-                _a_names = list((_a_name + _ext if _a_name else _a_name)
-                                for _a_name in opts.archive_name)
-                opts.attachments = list(mmutils.izip_longest(
-                    _attachment, _a_names))
-            elif _dirs:
-                parser.error("directory attachments needs compression")
+                if opts.archive_name:
+                    _a_name = opts.archive_name + _ext
+                else:
+                    _a_name = osp.basename(_attachment)
+                opts.attachments = [(_attachment, _a_name)]
             else:
                 opts.attachments = list(mmutils.izip_longest(
-                    it.chain(*opts.attachments), ()))
+                    it.chain(opts.attachments), ()))
     if not opts.subject:
         opts.subject = input("email's subject [hit RETURN when done]: ")
     if not opts.text:
@@ -370,11 +345,13 @@ def main(args):
                 print(e)
                 clean()
                 sys.exit(1)
-        elif editor.YOU_HAVE_CURSES:
+        elif editor.YOU_HAVE_CURSES and PY_VERSION < 3:
+            # temporary disable curses editor for python >= 3
+            # 'cause it must be fixed for work with that version
             opts.text = editor.use_curses_editor()
         else:
             opts.text = editor.no_curses()
-    elif osp.isfile(opts.text):
+    elif osp.isfile(osp.abspath(opts.text)):
         with open(opts.text) as t:
             opts.text = t.read()
     if opts.text_type == 'plain':
@@ -419,12 +396,15 @@ def main(args):
         _debug = config.getboolean(_section, 'debug_mode')
     opts.debug = opts.debug or _debug
     if opts.delay is None:
-        _delay = config.get(_section, 'delay')
-        try:
-            opts.delay = float(_delay)
-        except ValueError:
-            clean()
-            parser.error("Not a valid delay value: '%s'" % _delay)
+        if not opts.use_config_file:
+            opts.delay = 0
+        else:
+            _delay = config.get(_section, 'delay')
+            try:
+                opts.delay = float(_delay)
+            except ValueError:
+                clean()
+                parser.error("Not a valid delay value: '%s'" % _delay)
     if opts.delay < 0:
         clean()
         parser.error("delay must be >= 0, got %f instead" % opts.delay)

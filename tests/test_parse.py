@@ -11,11 +11,10 @@ import random
 import shlex
 import argparse
 import subprocess as sbp
-import platform
 import unittest
 
 pwd = op_.dirname(op_.realpath(__file__))
-p_exe = 'python%s.%s' % tuple(platform.python_version_tuple()[:2])
+p_exe = sys.executable
 m_exe = op_.join(op_.split(pwd)[0], 'src', 'multimail.py')
 config_file = op_.join(op_.split(pwd)[0], 'src', 'multimail.cfg')
 
@@ -43,6 +42,7 @@ class TestParser(unittest.TestCase):
         fails = ('--fail',
                  '-a foo bar -A',
                  '-a foo bar -A foo -A',
+                 '-a foo bar -A foo bar',
                  '-c bz2 -a foo bar -A foo -A',
                  '-c spam -a foo bar -A foo -A',
                  '-d "I am not a number, I am a free man."',
@@ -65,10 +65,9 @@ class TestParser(unittest.TestCase):
         diff = 0.5
         timeout = random.randint(0, 1001)
         args = {
-            '-a foo bar baz': lambda o: o.attachments == ['foo bar baz'.split()],
-            '-a foo -a baz': lambda o: o.attachments == [['foo'], ['baz']],
-            '-A x y z': lambda o: o.archive_name == ['x y z'.split()],
-            '-A x -A y z': lambda o: o.archive_name == [['x'], ['y', 'z']],
+            '-a foo bar baz': lambda o: o.attachments == 'foo bar baz'.split(),
+            '-a foo -a baz': lambda o: o.attachments == ['baz'],
+            '-A x -A z': lambda o: o.archive_name == 'z',
             '-c tar': lambda o: o.compression == 'tar' and o.delay is None,
             '-c gz': lambda o: o.compression == 'gz' and o.debug is False,
             '-c bz2': lambda o: o.compression == 'bz2' and o.secure_conn is False,

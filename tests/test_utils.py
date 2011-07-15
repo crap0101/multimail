@@ -24,7 +24,7 @@ import unittest
 pwd = op_.dirname(op_.realpath(__file__))
 data_dir = op_.join(pwd, 'data')
 
-fake_exe = 'python%s.%s' % tuple(platform.python_version_tuple()[:2])
+fake_exe = sys.executable
 config_file_opts = ["host", "port", "ssl_port", "secure_conn",
                     "timeout", "debug_mode", "delay", "editor",
                     "sender", "login", "password", "text_type",]
@@ -100,25 +100,6 @@ class TestFormatTime(unittest.TestCase):
         st = time.strptime(fmts, "%a, %d %b %Y %H:%M:%S")
         for lv, fv in zip(ltime[:-1], st[:-1]):
             self.assertEqual(lv, fv)
-
-    def testTimeDiff(self):
-        stb = [2000, 11, 30, 0, 55, 0, 3, 335, -1]
-        t1 = time.struct_time(stb)
-        for h in range(23):            
-            stb[3] = h
-            t2 = time.struct_time(stb)
-            fmts = mmutils.mail_format_time(t1, t2)
-            dh = int(fmts.split()[-1])/100
-            if t1 > t2:
-                self.assertEqual(dh, t1.tm_hour - t2.tm_hour)
-            elif t1 < t2:
-                self.assertEqual(dh, t2.tm_hour - t1.tm_hour)
-            fmts = mmutils.mail_format_time(t2, t1)
-            dh = int(fmts.split()[-1])/100
-            if t1 > t2:
-                self.assertEqual(dh, t2.tm_hour - t1.tm_hour)
-            elif t1 < t2:
-                self.assertEqual(dh, t1.tm_hour - t2.tm_hour)
 
 
 class TestConfig(unittest.TestCase):

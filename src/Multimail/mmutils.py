@@ -22,6 +22,7 @@
 
 import os
 import time
+import datetime
 import shlex
 import subprocess as subp
 import os.path as osp
@@ -146,18 +147,17 @@ def gpg_sign(gpg_exe, gpg_key_id, text, detach):
     os.remove(to_sign)
     return signed
 
-def mail_format_time(gmtime=None, localtime=None):
+def mail_format_time():
     """
     Return the actual time and date as a string in a
-    format compliant with the RFC822 specification.
+    format compliant with the RFC2822 specification.
     """
-    gtime = gmtime or time.gmtime()
-    ltime = localtime or time.localtime()
-    delta = abs(ltime.tm_hour - gtime.tm_hour)
-    #delta = 0 if not _delta else 24 % _delta
-    diff = "%s%02d00" % ('-' if ltime < gtime else '+', delta)
-    return "%s %s" % (time.strftime(
-        "%a, %d %b %Y %H:%M:%S", time.localtime()), diff)
+    du = datetime.datetime.utcnow()
+    dl = datetime.datetime.now()
+    diff = int(round((dl - du).seconds / 3600.0))
+    _s = '-' if diff < 0 else '+' 
+    return "%s %s%02d00" % (time.strftime(
+        "%a, %d %b %Y %H:%M:%S", time.localtime()), _s, abs(diff))
 
 
 def read_config(file):

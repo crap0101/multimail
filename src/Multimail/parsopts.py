@@ -19,6 +19,10 @@
 # along with this program; if not see <http://www.gnu.org/licenses/>
 
 
+import sys
+import argparse
+
+
 VERSION = 'multimail 2.2.2'
 
 DESCRIPTION = """
@@ -37,9 +41,14 @@ OPTIONAL:
 
 EPILOG = """
 EXAMPLES:
+# with attachments
+~$ {prog} -f you@mail.foo -l login_name -r addr@1.bar addr@2.baz -a attach1 \
+    attach2 -s subject -m mail_text -S -H host -P 465 -n
+# compress the attachments:
+~$ {prog} -f you@mail.foo -l login_name -r addr@1.bar addr@2.baz -a attach1 \
+    attach2 -c bz2 -A arch_name -s subject -m mail_text -S -H host -P 465 -n
 
-
-INTERNAL TEXT EDITOR KEYSTROKES:
+INTERNAL TEXT EDITOR KEYSTROKES (actually works only with Python < 3):
 ------------------------------------------------
   [CRTL + G]  >> save and quit
   [RETURN]    >> CR :)
@@ -69,10 +78,8 @@ delay = 0           ;; delay between mail sending
 gpg_key_id =        ;; gpg key ID for sign mails
 gpg_exe =           ;; path to the gpg executable
 ---------------------------------
-"""
+""".format(prog=sys.argv[0])
 
-
-import argparse
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -80,33 +87,19 @@ def get_parser():
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-a', '--attachments', dest='attachments', nargs='+',
-                        metavar='FILE', action='append', default=[],
-                        help='attach these files to the mail. Multiple use'
-                        ' of this option together with the -c|--compress'
-                        ' option cause the creation of multiple'
-                        " archive and, in this case, they will be named with"
-                        ' the corresponding parameter passed to the '
-                        ' -A|--archive-name option.')
+                        metavar='FILE', default=[],
+                        help='attach these files/dirs to the mail.'
+                        ' Actually, if some elements are directories'
+                        ' you must use the -c|--compress option.')
     parser.add_argument('-A', '--archive-name',
-                        metavar='STR', dest='archive_name', nargs='+',
-                        default=[], action='append',
-                        help='Name of the archives to attach (the right'
-                        " extension depending the archive's type will be"
-                        ' automatically appended to the given name).'
-                        ' This option will be used only if the -c|--compress'
-                        ' option is present, raise an error otherwise). If the'
-                        " option's argument is '-' and the corresponding"
-                        " attachment is a single file or a directory, its name"
-                        ' is used. A valid use is:'
-                        '  [...] -a FILES_FOR_ARCH1 -a FILE -a FILES_FOR_ARCH2'
-                        ' -A NAME_OF_ARCH1 - NAME_OF_ARCH2 -c bz2 [...] .'
-                        ' Or (same result):'
-                        ' [...] -a FILES_FOR_ARCH1 -A NAME_OF_ARRCH1 -a FILE -A -'
-                        ' -a FILES_FOR_ARCH2 -A NAME_OF_ARCH2 -c bz2 [...].')
+                        metavar='NAME', dest='archive_name',
+                        help='When using the -c|--compress option, make'
+                        ' an attachment named *NAME*, otherwhise a random'
+                        ' name will be choose.')
     parser.add_argument('-c', '--compress', dest='compression',
                         choices=('tar', 'gz', 'bz2', 'zip'),
                         help='make a (potentially) compressed archive'
-                        ' of the attachments before attach them to the mail.'
+                        ' of the attachment before attach them to the mail.'
                         ' "gz" and "bz2" creates a tar.(gz|bz2) archive.')
     parser.add_argument('-C', '--config-file', dest='custom_config_file',
                         help="Path to the config file from to read program's"

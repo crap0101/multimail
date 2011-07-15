@@ -34,7 +34,8 @@ try:
     YOU_HAVE_CURSES = True
 except ImportError:
     YOU_HAVE_CURSES = False
-
+import platform
+PYVERSION = int(platform.python_version_tuple()[0])
 
 class EditorError(Exception):
     pass
@@ -44,7 +45,7 @@ def no_curses(stream=sys.stdin, verbose=True):
     read from *stream* (default: stdin).
     """
     if verbose:
-        print("module curses not found!\n"
+        print("module curses not found or not usable yet.\n"
               "Reading from stdin(C-d or C-z to stop typing)")
     return stream.read()
 
@@ -203,7 +204,7 @@ class Editor(object):
         curses.noecho()
         self.win.refresh()
         c = self._scan()
-        if(c >= 32) and(c < 127):
+        if (c >= 32) and(c < 127):
             self._insert_chr(chr(c))
             if x < self.maxX:
                 self._actualX += 1
@@ -343,8 +344,7 @@ class Editor(object):
                           for line in self.table).rstrip()
 
     def quit_curses(self):
-        """
-        Do the proper things before exiting such as de-initialize the
+        """Do the proper things before exiting such as de-initialize the
         curses library and return the terminal to normal status.
         """
         curses.endwin()
@@ -358,15 +358,25 @@ def use_curses_editor():
     import locale
     locale.setlocale(locale.LC_ALL, '')
     CODE = locale.getpreferredencoding()
-    ed = Editor(CODE)
-    ed.edit()
-    text = ed.save_text()
-    locale.setlocale(locale.LC_ALL, 'C')
+    try:
+        ed = Editor(CODE)
+        ed.edit()
+        text = ed.save_text()
+    except Exception as e:
+        ed.quit_curses()
+        try:
+            import traceback
+            traceback.print_tb(e.__traceback__)
+        except:
+            pass
+        print(str(e))
+        return
+    finally:
+        locale.setlocale(locale.LC_ALL, 'C')
     return text
 
-
 if __name__ == '__main__':
-    if YOU_HAVE_CURSES:
+    if YOU_HAVE_CURSES and PYVERSION < 3:
         print(use_curses_editor())
     else:
         print(no_curses())
