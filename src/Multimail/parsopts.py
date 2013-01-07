@@ -103,7 +103,7 @@ def get_parser():
                         ' "gz" and "bz2" creates a tar.(gz|bz2) archive.')
     parser.add_argument('-C', '--config-file', dest='custom_config_file',
                         help="Path to the config file from to read program's"
-                        "configuration infos instead of the default one"
+                        " configuration infos instead of the default one"
                         " (which is ~/.multimail.cfg ).")
     parser.add_argument('-D', '--debug', dest='debug', action='store_true',
                         help='show more info when sending mails.')
